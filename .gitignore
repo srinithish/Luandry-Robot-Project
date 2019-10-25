@@ -1,0 +1,5 @@
+.spyproject/
+__pycache__/
+xArm-Python-SDK/
+CES2020-970bffbf8064.json
+pocketsphinx-python/
