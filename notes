@@ -1,0 +1,6 @@
+1. Write function for syncing 
+
+2. https://github.com/IntelRealSense/librealsense/tree/development/wrappers/python
+
+
+python3 balloon.py splash --weights=./logs/damage20191112T1114/mask_rcnn_damage_0030.h5" --image=image10.jpg

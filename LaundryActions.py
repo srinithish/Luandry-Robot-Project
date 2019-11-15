@@ -9,7 +9,7 @@ from xarm.wrapper import XArmAPI
 # import numpy as np
 
 
-class mainActions:
+class LaundryActions:
 
     def __init__(self, armHandle, **kwargs):
 
@@ -63,11 +63,11 @@ class mainActions:
         #                        wait=True, is_radian=False)
         code = armHandle.set_gripper_mode(0)
         code = armHandle.set_gripper_enable(True)
-        armHandle.set_gripper_position(100, wait=True)
+        armHandle.set_gripper_position(450, wait=wait)
 
         pass
 
-    def holdObject(self, value,position,wait,speed=None, mvacc=None):
+    def holdObject(self, value,speed=None, mvacc=None,wait = None):
 
         """
         holds the object with gripper value
@@ -78,20 +78,10 @@ class mainActions:
         speed, mvacc, wait = self._getDefaults(speed=speed, mvacc=mvacc, wait=wait)
         armHandle = self._armHandle
         
-        armHandle.set_position(*position, speed=speed, mvacc=mvacc, wait=True,
-                               is_radian=False)
+
         armHandle.set_gripper_position(value, wait=wait)
         pass
 
-    def releaseObject(self):
-
-        """
-        releases the object completely
-        """
-        armHandle = self._armHandle
-        armHandle.set_gripper_position(800, wait=True)
-
-        pass
 
     def _achieveHorizontalGripperPos(self, startPos,speed=None, mvacc=None, wait=None):
 
@@ -127,12 +117,10 @@ class mainActions:
         ## TODO : check these speeds and mvacc for valididty and change y if reqired
         armHandle.set_position(250, y, 400, -180, 90, 0, speed=speed, mvacc=mvacc, wait=wait,
                                 is_radian=False)
-        print('1st ',armHandle.get_position(is_radian=False)[1][3:])
+        
         armHandle.set_position(250, y, 400, xRoll, 90, 0, speed=speed, mvacc=mvacc, wait=wait,
                                is_radian=False)
         
-        
-        print('2nd ',armHandle.get_position(is_radian=False)[1][3:])
         ## return orientation
         
         self._currentAttitude = [xRoll, 90, 0]
@@ -150,8 +138,11 @@ class mainActions:
         ## TODO may require to do in joint angles
         armHandle.set_position(250, 0, 350, -180, 0, 0, speed=speed, mvacc=mvacc, wait=wait,
                                is_radian=False)
-
-        pass
+        
+        
+        self._currentAttitude = [-180, 0, 0]
+        
+        return self._currentAttitude
 
     def achieveAttitude(self):
         """
@@ -212,21 +203,7 @@ class mainActions:
         self.approach(**approachAfterStart,speed=speed, mvacc=mvacc, wait=wait)
 
         ###hold the object
-        self.holdObject(gripHoldValues[1],wait = wait)
-#        armHandle.set_gripper_position(gripHoldValues[0], wait=True)
         
-        ###lift the object of the surface
-        self.approach(z= ZoffGround,speed=speed, mvacc=mvacc, wait=wait)
-        
-        
-
-        ###go back by approach
-
-        reverseApproachAfterStart = {key: -value for key, value in approachAfterStart.items()}
-        self.approach(**reverseApproachAfterStart,speed=speed, mvacc=mvacc, wait=wait)
-
-        ##second pose
-
         return armHandle.get_position(is_radian=False)[1]
 
     def horizontalPlace(self, objPlacingPos, approachDirn,
@@ -278,7 +255,7 @@ class mainActions:
         return armHandle.get_position(is_radian=False)[1]
 
     def verticalPick(self, objPickPos, approachDirn,
-                     gripHoldValues,
+                     
                      speed=None, mvacc=None, wait=None):
 
         """
@@ -287,8 +264,10 @@ class mainActions:
 
         @params:
             gripHoldValues = (before,after)
+            
             objPickPos = [x...,yaw...] eact obj location
-
+            
+            approachDir= {x: value....}
         @return:
 
             current position list
@@ -297,27 +276,21 @@ class mainActions:
         armHandle = self._armHandle
         speed, mvacc, wait = self._getDefaults(speed=speed, mvacc=mvacc, wait=wait)
 
-        ##before gripper position
-        self.holdObject(gripHoldValues[0],wait = wait)
         ##over ridding orientations
         self._currentAttitude = [-180, 0, 0]
         ## TODO: Achieve vertical attitutde here through function
-        objPickPos[3:] = self._currentAttitude
         
-        objPickPos[0] = objPickPos[0] - approachDirn.get('x',0) 
-        objPickPos[1] = objPickPos[1] - approachDirn.get('y',0) 
-        objPickPos[2] = objPickPos[2] - approachDirn.get('z',0) 
-        armHandle.set_position(*objPickPos, speed=speed, mvacc=mvacc, wait=wait, is_radian=False)
+        
+        objPickPosCopy = list(objPickPos)
+        objPickPosCopy[3:] = self._currentAttitude
+        
+        objPickPosCopy[0] = objPickPosCopy[0] - approachDirn.get('x',0) 
+        objPickPosCopy[1] = objPickPosCopy[1] - approachDirn.get('y',0) 
+        objPickPosCopy[2] = objPickPosCopy[2] - approachDirn.get('z',0) 
+        armHandle.set_position(*objPickPosCopy, speed=speed, mvacc=mvacc, wait=wait, is_radian=False)
 
         ###approach the object
         self.approach(**approachDirn,speed=speed, mvacc=mvacc, wait=wait)
-
-        ###hold the object
-        self.holdObject(gripHoldValues[1],wait = wait)
-
-        ###go back by approach
-        reverseApproachAfterStart = {key: -value for key, value in approachDirn.items()}
-        self.approach(**reverseApproachAfterStart,speed=speed, mvacc=mvacc, wait=wait)
 
         return armHandle.get_position(is_radian=False)[1]
 
@@ -400,6 +373,57 @@ class mainActions:
 
         return armHandle.get_position(is_radian=False)[1]
 
+    def _syncArmsBeforeGripperActions(self,posnOfSelfArm,otherArmHandle= None,posnOfOtherArm= None):
+        
+        
+        """
+        need to supply both posnOfOtherArm and OtherArmHandle when syncing both arms
+        @params:
+            posnOfSelfArm: self Objects position just before the gripper actions
+            posnOfOtherArm: other arms position just before the gripper actions
+            otherArmHandle: 'arm' of other bot to sync with
+            
+            
+        """
+        
+        ## first arm waiting
+        firstHandle = self._armHandle
+        firstHandle.set_position(*posnOfSelfArm,wait=True, is_radian=False)
+        
+        
+        ## second arm waiting
+        if posnOfOtherArm is not None and otherArmHandle is not None:
+            
+            otherArmHandle.set_position(*posnOfOtherArm,wait=True, is_radian=False)
+        
+        
+        return True
+    
+    
+    def syncGripperActions(self,posnOfSelfArm,gripperPosnOfSelfArm, ## self gets the frist ArmHandle
+                           otherArmHandle = None,posnOfOtherArm = None,gripperPosnOfOtherArm = None):
+        
+        
+        
+        ##syncs robot positions before gripper actions
+        self._syncArmsBeforeGripperActions(posnOfSelfArm,otherArmHandle,posnOfOtherArm)
+        
+        if gripperPosnOfOtherArm is not None and otherArmHandle is not None:
+            
+            otherArmHandle.set_gripper_position(gripperPosnOfOtherArm, wait=False)
+            print("2")
+        
+        print("Syncing actions")
+        firstHandle = self._armHandle
+        firstHandle.set_gripper_position(gripperPosnOfSelfArm, wait=True)
+        
+        print("1")
+        ## second arm waiting
+        
+        
+        return True
+        
+        
 
 if __name__ == '__main__':
     myAct = mainActions('hello')
