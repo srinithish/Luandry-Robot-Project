@@ -11,15 +11,18 @@ import tensorflow as tf
 import numpy as np
 import sklearn
 import pandas as pd
-
+import dataPreparationForKeypoints
 import cv2 as cv2
 import time
 
-NCLASSES = 14
+NCLASSES = 24
 tf.test.is_gpu_available()
 
-baseModel = tf.keras.applications.resnet50.ResNet50(weights = "imagenet",include_top = False,
-                                                    input_shape=(553,720,3))
+trainingDict = dataPreparationForKeypoints.loadToXYArray((400,400))
+
+baseModel = tf.keras.applications.inception_resnet_v2.InceptionResNetV2(weights = "imagenet",
+                                                                        include_top = False,
+                                                    input_shape=(400,400,3))
 #model = vgg16.VGG16(weights='imagenet', include_top=False, input_shape=(160,320,3))
 
 layer1 = { "type":"conv2d",
@@ -50,7 +53,7 @@ layer4 = { "type":"maxpool",
 layer5 = { "type":"fullyConnected",
             'outputUnits': NCLASSES,
             
-            "activation": None
+            "activation": tf.nn.leaky_relu
           }
 
 layerStack = [layer1,layer2,layer3,layer4,layer5]
@@ -118,17 +121,45 @@ def get_network_output(input_x,layers):
 topNetWorkOutput = get_network_output(input_x = baseModel.output,layers = layerStack)
 
 
-fullModel = tf.keras.Model(inputs= baseModel.input,outputs = topNetWorkOutput)
+###network params
+
+initializer = tf.keras.initializers.he_normal()
+optimizer = tf.keras.optimizers.Adam()
+
+
+
+
+XYCoordinatePredictions = tf.keras.layers.Dense(
+                              units = 24,
+                              activation = tf.nn.sigmoid,
+                              kernel_initializer= initializer,name= "XYLayer")(topNetWorkOutput)
+
+
+
+maskPredictions = tf.keras.layers.Dense(
+                              units = 24,
+                              activation = tf.nn.sigmoid,
+                              kernel_initializer= initializer,name= "maskLayer")(topNetWorkOutput)
+
+
+
+
+fullModel = tf.keras.Model(inputs= baseModel.input,outputs = [XYCoordinatePredictions,maskPredictions])
 
 
 for layer in baseModel.layers:
     layer.trainable = False
 
 
-fullModel.compile(loss = ['mse'],optimizer = "sgd")
-
-fullModel.fit
+fullModel.compile(loss = ['mse',"binary_crossentropy"],optimizer = optimizer)
 fullModel.summary()
-imarray  = cv2.imread("./image2.jpg")
-imarray = np.array([imarray])
-fullModel.predict(imarray)
+fullModel.fit(x=trainingDict['X_imageArray_resized'],
+              y=[trainingDict['Normalised_Cooridnates'],trainingDict['Masks']],
+              epochs= 50,validation_split = 0.1)
+
+#### visualize predictions
+predictions = fullModel.predict(trainingDict['X_imageArray_resized'])
+
+for index,pred in enumerate(predictions):
+    
+    dataPreparationForKeypoints.visualize(pred[0],trainingDict['X_imageArray_original'][index])

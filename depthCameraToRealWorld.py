@@ -13,7 +13,7 @@ import cv2
 import colourTracking
 import matplotlib.pyplot as plt
 import time
-
+import pickle as pk
 class DepthCamera():
     
     
@@ -87,6 +87,8 @@ if __name__ == '__main__':
     myCam = DepthCamera()
     counter = 0
     cordList = []
+    
+    
     while True:
         colorImage,depthImage = myCam.getRGBAndDepthFrame()
 #        myCam.getXYZAtPt(200,300)  
@@ -110,9 +112,10 @@ if __name__ == '__main__':
         cv2.imshow("Tracking", newColorImage)
         time.sleep(0.025)
     cv2.destroyAllWindows()
-#    cv2.imwrite("test.png", colorImage[286:358,1000:1067,:])
-##
+    
+    bgArray = pk.load(open('Background.pkl','rb'))
+    diffArray = depthImage-bgArray
+    plt.matshow(diffArray)
+#    pk.dump(depthImage,open('Background.pkl','wb'))
 #    plt.imshow(plt.imread("./Data/Keypointdetection/cropped/1573847097.png"))
 ##    plt.imshow(cv2.cvtColor(colorImage, cv2.COLOR_BGR2RGB))
-#    plt.imshow(grayDepth)
-
