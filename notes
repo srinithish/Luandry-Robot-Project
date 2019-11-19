@@ -6,3 +6,5 @@
 python3 balloon.py splash --weights=./logs/damage20191112T1114/mask_rcnn_damage_0030.h5" --image=image10.jpg
 
 python balloon.py train --dataset="C:\Users\GELab\Documents\Development\instanceSegmentationFromMatterport\Mask_RCNN\datasets\balloon" --weights=coco
+
+python3 balloon.py splash --weights=../../logs/balloon20191118T1143/mask_rcnn_balloon_0030.h5 --image=../../datasets/balloon/val/410488422_5f8991f26e_b.jpg
