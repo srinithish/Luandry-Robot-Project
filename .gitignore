@@ -6,3 +6,4 @@ pocketsphinx-python/
 hololens/
 pretrained-yolov3.h5
 yolo.h5
+results/
